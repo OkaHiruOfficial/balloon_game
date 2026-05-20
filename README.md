@@ -28,4 +28,4 @@ Balloon Game được xây dựng với sự tối ưu hóa cao độ:
 2. **Phím tắt:** Nhấn **F11** (Windows) hoặc **Control + Command + F** (macOS) để vào chế độ toàn màn hình tức thì.
 
 ---
-*Phát triển bởi **Oops Hano (Oka Hiru)**. Hãy cùng xem bạn có thể tồn tại được bao lâu trước khi độ khó lên đến đỉnh điểm nhé!*
+Hãy cùng xem bạn có thể tồn tại được bao lâu trước khi độ khó lên đến đỉnh điểm nhé!*
