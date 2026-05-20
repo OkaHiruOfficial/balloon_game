@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Khinh Khí Cầu</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg: #ffffff;
+            --text: #000000;
+            --text2: #666666;
+            --accent: #FF6B6B;
+            --accent2: #4ECDC4;
+            --glass: rgba(255,255,255,0.92);
+            --border: rgba(0,0,0,0.1);
+        }
+        body.dark {
+            --bg: #1a1a1a;
+            --text: #ffffff;
+            --text2: #aaaaaa;
+            --accent: #FF6B6B;
+            --accent2: #4ECDC4;
+            --glass: rgba(30,30,30,0.92);
+            --border: rgba(255,255,255,0.1);
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: var(--bg);
+            color: var(--text);
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            transition: background 0.3s, color 0.3s;
+            user-select: none;
+        }
+
+        /* GAME WRAP - chỉ chiếm phần giữa */
+        .game-wrap {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            min-height: 0;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* CONTROLS - cố định ở dưới */
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 20px;
+            background: var(--glass);
+            border-top: 2px solid var(--border);
+            gap: 20px;
+            flex-shrink: 0;
+        }
+        .ctrl-btn {
+            flex: 1;
+            height: 64px;
+            font-size: 30px;
+            font-weight: bold;
+            background: var(--bg);
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            color: var(--text);
+            cursor: pointer;
+            touch-action: none;
+            -webkit-user-select: none;
+            transition: background 0.1s, color 0.1s;
+        }
+        .ctrl-btn:active,
+        .ctrl-btn.pressed {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        /* HEADER */
+        header {
+            display: flex;
+            align-items: center;
+            padding: 10px 16px;
+            background: var(--glass);
+            border-bottom: 2px solid var(--border);
+            backdrop-filter: blur(8px);
+            z-index: 100;
+            gap: 10px;
+        }
+        .logo {
+            font-size: 18px;
+            font-weight: bold;
+            letter-spacing: 1px;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            white-space: nowrap;
+        }
+        .stats {
+            display: flex;
+            gap: 20px;
+            flex: 1;
+            justify-content: center;
+            font-size: 13px;
+            font-weight: bold;
+        }
+        .stat {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .stat-label { color: var(--text2); }
+        .stat-val {
+            color: var(--accent);
+            font-size: 15px;
+            min-width: 55px;
+            text-align: right;
+        }
+        .menu-btn {
+            background: none;
+            border: none;
+            color: var(--text);
+            font-size: 22px;
+            cursor: pointer;
+            padding: 4px 8px;
+        }
+        .dropdown {
+            position: fixed;
+            top: 52px;
+            right: 16px;
+            background: var(--glass);
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            padding: 12px 18px;
+            z-index: 999;
+            display: none;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+            backdrop-filter: blur(8px);
+        }
+        .dropdown.show { display: block; }
+        .menu-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            font-size: 14px;
+            padding: 8px 0;
+            white-space: nowrap;
+        }
+        .toggle {
+            width: 46px; height: 26px;
+            background: var(--border);
+            border: 2px solid var(--text);
+            border-radius: 13px;
+            position: relative;
+            transition: background 0.3s;
+        }
+        .toggle.on { background: var(--accent); }
+        .knob {
+            position: absolute;
+            top: 2px; left: 2px;
+            width: 18px; height: 18px;
+            background: white;
+            border-radius: 50%;
+            transition: left 0.25s;
+        }
+        .toggle.on .knob { left: 22px; }
+
+        /* POWER UP */
+        .powerup-bar {
+            position: absolute;
+            bottom: 14px;
+            left: 14px;
+            background: var(--glass);
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 11px;
+            pointer-events: none;
+            display: none;
+            backdrop-filter: blur(6px);
+        }
+        .powerup-bar.show { display: block; }
+        .powerup-label {
+            font-weight: bold;
+            color: var(--accent);
+            margin-bottom: 5px;
+        }
+        .bar-track {
+            width: 130px; height: 7px;
+            background: var(--bg);
+            border: 1px solid var(--text2);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg,#f00,#ff7f00,#ff0,#0f0,#00f,#8b00ff);
+            transition: width 0.05s linear;
+        }
+
+        /* GAME OVER */
+        .gameover {
+            position: fixed;
+            top: 50%; left: 50%;
+            transform: translate(-50%,-50%);
+            background: var(--glass);
+            border: 3px solid var(--border);
+            border-radius: 16px;
+            padding: 28px 32px;
+            text-align: center;
+            z-index: 500;
+            display: none;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.25);
+            backdrop-filter: blur(16px);
+            width: 88%;
+            max-width: 300px;
+        }
+        .gameover.show { display: block; animation: pop .4s cubic-bezier(.34,1.56,.64,1); }
+        @keyframes pop {
+            from { opacity:0; transform:translate(-50%,-50%) scale(.5); }
+            to   { opacity:1; transform:translate(-50%,-50%) scale(1); }
+        }
+        .gameover h2 {
+            font-size: 30px;
+            color: var(--accent);
+            letter-spacing: 2px;
+            margin-bottom: 16px;
+        }
+        .go-stat {
+            color: var(--text2);
+            font-size: 15px;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .go-stat:last-of-type { border-bottom: none; }
+        .go-val {
+            color: var(--accent2);
+            font-weight: bold;
+            font-size: 22px;
+        }
+        .play-btn {
+            margin-top: 18px;
+            padding: 11px 28px;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform .2s;
+        }
+        .play-btn:hover { transform: translateY(-2px); }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo">🎈 BALLOON</div>
+        <div class="stats">
+            <div class="stat">
+                <span class="stat-label">Điểm:</span>
+                <span class="stat-val" id="score">0</span>
+            </div>
+            <div class="stat">
+                <span class="stat-label">Thời gian:</span>
+                <span class="stat-val" id="timer">0</span>
+            </div>
+        </div>
+        <button class="menu-btn" id="menuBtn">⋮</button>
+        <div class="dropdown" id="dropdown">
+            <div class="menu-item" id="darkToggle">
+                <span>Chế độ tối</span>
+                <div class="toggle" id="darkSwitch"><div class="knob"></div></div>
+            </div>
+        </div>
+    </header>
+
+    <div class="game-wrap">
+        <canvas id="c"></canvas>
+
+        <div class="powerup-bar" id="powerupBar">
+            <div class="powerup-label">🌈 Rainbow Mode</div>
+            <div class="bar-track"><div class="bar-fill" id="barFill"></div></div>
+        </div>
+
+        <div class="gameover" id="gameover">
+            <h2>GAME OVER!</h2>
+            <div class="go-stat">Điểm:<br><span class="go-val" id="goScore">0</span></div>
+            <div class="go-stat">Thời gian sống sót:<br><span class="go-val" id="goTime">0</span>s</div>
+            <button class="play-btn" id="restartBtn">CHƠI LẠI</button>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button class="ctrl-btn" id="btnLeft">◀</button>
+        <button class="ctrl-btn" id="btnRight">▶</button>
+    </div>
+
+    <script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    const wrap = document.querySelector('.game-wrap');
+
+    // ─── STATE ───────────────────────────────────────────
+    let W, H;
+    let score = 0, elapsed = 0, frameCount = 0;
+    let gameOver = false;
+    let darkMode = localStorage.getItem('dark') === 'true';
+    let difficulty = 1;
+
+    // ─── BALLOON ─────────────────────────────────────────
+    const B = {
+        x: 0, y: 0,          // set in reset
+        w: 32, h: 44,
+        vx: 0,
+        speed: 7,
+        rainbow: false,
+        rainbowTimer: 0,
+        rainbowDuration: 60 * 60
+    };
+
+    // ─── OBJECT POOLS ────────────────────────────────────
+    let spikes = [];       // obstacles
+    let balls  = [];       // collectibles
+
+    // ─── INPUT ───────────────────────────────────────────
+    const STEP = 20;
+
+    // Keyboard
+    window.addEventListener('keydown', e => {
+        if (e.key === 'ArrowLeft'  || e.key === 'a' || e.key === 'A') B.x = Math.max(0, B.x - STEP);
+        if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') B.x = Math.min(W - B.w, B.x + STEP);
+    });
+
+    // 2 nút bấm
+    const btnL = document.getElementById('btnLeft');
+    const btnR = document.getElementById('btnRight');
+
+    function moveLeft()  { if (!gameOver) B.x = Math.max(0,       B.x - STEP); }
+    function moveRight() { if (!gameOver) B.x = Math.min(W - B.w, B.x + STEP); }
+
+    // Nhấn 1 lần nhích ngay, giữ thì nhích liên tục
+    let holdL = null, holdR = null;
+
+    btnL.addEventListener('pointerdown', e => {
+        e.preventDefault();
+        moveLeft();
+        holdL = setInterval(moveLeft, 100);
+    });
+    btnR.addEventListener('pointerdown', e => {
+        e.preventDefault();
+        moveRight();
+        holdR = setInterval(moveRight, 100);
+    });
+    btnL.addEventListener('pointerup',     () => { clearInterval(holdL); holdL = null; });
+    btnL.addEventListener('pointercancel', () => { clearInterval(holdL); holdL = null; });
+    btnR.addEventListener('pointerup',     () => { clearInterval(holdR); holdR = null; });
+    btnR.addEventListener('pointercancel', () => { clearInterval(holdR); holdR = null; });
+
+    // ─── RESIZE ──────────────────────────────────────────
+    function resize() {
+        const r = wrap.getBoundingClientRect();
+        W = canvas.width  = r.width;
+        H = canvas.height = r.height;
+        B.y = H - 90;                 // balloon always near bottom
+    }
+    window.addEventListener('resize', () => { resize(); });
+    resize();
+
+    // ─── SPAWN HELPERS ───────────────────────────────────
+    function spawnSpike() {
+        // Width vừa đủ để lách qua được (40-70px)
+        const w = 40 + Math.random() * 30;
+        spikes.push({
+            x: Math.random() * (W - w),
+            y: -50,
+            w: w,
+            h: 28
+        });
+    }
+
+    function spawnBall() {
+        const r = Math.random();
+        let type = 'normal';
+        if      (r < 0.06) type = 'magnet';
+        else if (r < 0.11) type = 'rainbow';
+
+        balls.push({
+            x: Math.random() * (W - 20),
+            y: -30,
+            r: 9,
+            type,
+            collected: false,
+            angle: 0
+        });
+    }
+
+    // ─── RESET ───────────────────────────────────────────
+    function reset() {
+        score = 0; elapsed = 0; frameCount = 0;
+        gameOver = false; difficulty = 1;
+        B.x = W / 2 - B.w / 2;
+        B.vx = 0;
+        B.rainbow = false;
+        B.rainbowTimer = 0;
+        spikes.length = 0;
+        balls.length  = 0;
+
+        // Pre-fill — gai bắt đầu cách rất xa, người chơi có cả màn hình để chuẩn bị
+        for (let i = 0; i < 5; i++) {
+            spikes.push({
+                x: Math.random() * (W - 50),
+                y: -(H * 3 + i * 300),   // cách xa 3 màn hình
+                w: 40 + Math.random() * 30,
+                h: 28
+            });
+        }
+        for (let i = 0; i < 25; i++) {
+            const r2 = Math.random();
+            let type = 'normal';
+            if      (r2 < 0.06) type = 'magnet';
+            else if (r2 < 0.11) type = 'rainbow';
+            balls.push({
+                x: Math.random() * (W - 20),
+                y: Math.random() * (H - 100),
+                r: 9, type,
+                collected: false, angle: 0
+            });
+        }
+
+        document.getElementById('gameover').classList.remove('show');
+    }
+
+    // ─── DRAW BALLOON ────────────────────────────────────
+    function drawBalloon() {
+        const cx = B.x + B.w / 2;
+        const cy = B.y + B.h / 2;
+        ctx.save();
+        ctx.translate(cx, cy);
+
+        // Color
+        if (B.rainbow) {
+            const g = ctx.createLinearGradient(-B.w/2, -B.h/2, B.w/2, B.h/2);
+            g.addColorStop(0,    '#f00');
+            g.addColorStop(0.16, '#ff7f00');
+            g.addColorStop(0.33, '#ff0');
+            g.addColorStop(0.5,  '#0f0');
+            g.addColorStop(0.67, '#00f');
+            g.addColorStop(0.83, '#4b0082');
+            g.addColorStop(1,    '#8b00ff');
+            ctx.fillStyle = g;
+        } else {
+            ctx.fillStyle = darkMode ? '#FF8585' : '#FF6B6B';
+        }
+
+        // Balloon body
+        ctx.beginPath();
+        ctx.ellipse(0, -6, B.w/2 - 3, B.h/2 - 8, 0, 0, Math.PI*2);
+        ctx.fill();
+
+        // Basket
+        ctx.fillStyle = darkMode ? '#dddddd' : '#333333';
+        ctx.fillRect(-9, 9, 18, 14);
+        ctx.strokeStyle = darkMode ? '#aaaaaa' : '#666';
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= 4; i++) {
+            ctx.beginPath();
+            ctx.moveTo(-9 + i*4.5, 9);
+            ctx.lineTo(-9 + i*4.5, 23);
+            ctx.stroke();
+        }
+
+        ctx.restore();
+    }
+
+    function drawSpike(s) {
+        ctx.save();
+        ctx.fillStyle = darkMode ? '#ff8585' : '#FF6B6B';
+        ctx.strokeStyle = darkMode ? '#ffaaaa' : '#cc0000';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        // Nhọn xuống dưới
+        ctx.moveTo(s.x,          s.y);          // trái trên
+        ctx.lineTo(s.x + s.w,    s.y);          // phải trên
+        ctx.lineTo(s.x + s.w/2,  s.y + s.h);   // nhọn xuống dưới
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    // ─── DRAW BALL ───────────────────────────────────────
+    function drawBall(b) {
+        ctx.save();
+        ctx.translate(b.x, b.y);
+        ctx.rotate(b.angle);
+
+        if (b.type === 'normal') {
+            ctx.fillStyle = '#4ECDC4';
+            ctx.beginPath();
+            ctx.arc(0, 0, b.r, 0, Math.PI*2);
+            ctx.fill();
+            // highlight
+            ctx.fillStyle = 'rgba(255,255,255,0.4)';
+            ctx.beginPath();
+            ctx.arc(-b.r*0.3, -b.r*0.3, b.r*0.35, 0, Math.PI*2);
+            ctx.fill();
+
+        } else if (b.type === 'magnet') {
+            ctx.fillStyle = '#FFD93D';
+            ctx.fillRect(-b.r, -b.r*0.6, b.r - 1, b.r*1.2);
+            ctx.fillStyle = '#FF6B6B';
+            ctx.fillRect(1, -b.r*0.6, b.r - 1, b.r*1.2);
+            ctx.strokeStyle = darkMode ? '#fff' : '#222';
+            ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(0,-b.r*0.6); ctx.lineTo(0,b.r*0.6); ctx.stroke();
+
+        } else { // rainbow
+            const g = ctx.createLinearGradient(-b.r,-b.r,b.r,b.r);
+            g.addColorStop(0,'#f00'); g.addColorStop(0.2,'#ff7f00');
+            g.addColorStop(0.4,'#ff0'); g.addColorStop(0.6,'#0f0');
+            g.addColorStop(0.8,'#00f'); g.addColorStop(1,'#8b00ff');
+            ctx.fillStyle = g;
+            ctx.beginPath();
+            ctx.arc(0, 0, b.r, 0, Math.PI*2);
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+
+        ctx.restore();
+        b.angle += 0.1;
+    }
+
+    // ─── PARTICLES ───────────────────────────────────────
+    let particles = [];
+    function burst(x, y, color, n) {
+        for (let i = 0; i < n; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 1 + Math.random() * 4;
+            particles.push({
+                x, y,
+                vx: Math.cos(angle)*speed,
+                vy: Math.sin(angle)*speed,
+                life: 30, max: 30,
+                color: color || '#FF6B6B'
+            });
+        }
+    }
+    function rainbowColor() {
+        const c = ['#f00','#ff7f00','#ff0','#0f0','#00f','#8b00ff'];
+        return c[Math.floor(Math.random()*c.length)];
+    }
+
+    function drawParticles() {
+        for (let i = particles.length-1; i >= 0; i--) {
+            const p = particles[i];
+            p.x += p.vx; p.y += p.vy; p.vy += 0.2; p.life--;
+            ctx.save();
+            ctx.globalAlpha = p.life / p.max;
+            ctx.fillStyle = p.color;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 2.5, 0, Math.PI*2);
+            ctx.fill();
+            ctx.restore();
+            if (p.life <= 0) particles.splice(i, 1);
+        }
+    }
+
+    // ─── UPDATE ──────────────────────────────────────────
+    const FALL_SPEED_BASE = 2.0;  // base fall speed
+
+    function update() {
+        if (gameOver) return;
+
+        frameCount++;
+        if (frameCount % 60 === 0) elapsed++;
+        difficulty = 1 + elapsed / 40;   // gets harder every 40 seconds
+
+        const fallSpeed = FALL_SPEED_BASE * difficulty;
+
+        // Balloon di chuyển qua nút bấm, không cần xử lý ở đây
+
+        // Move spikes down
+        for (let i = spikes.length-1; i >= 0; i--) {
+            spikes[i].y += fallSpeed;
+            if (spikes[i].y > H + 60) spikes.splice(i, 1);
+        }
+
+        // Move balls down
+        for (let i = balls.length-1; i >= 0; i--) {
+            if (!balls[i].collected) {
+                balls[i].y += fallSpeed;
+                if (balls[i].y > H + 60) balls.splice(i, 1);
+            } else {
+                balls.splice(i, 1);
+            }
+        }
+
+        // Spawn spikes — thưa hơn nữa
+        const spikeChance = 0.05 * difficulty;
+        if (Math.random() < spikeChance && spikes.length < 15) {
+            spawnSpike();
+        }
+
+        // Spawn balls
+        if (Math.random() < 0.3 && balls.length < 40) {
+            spawnBall();
+        }
+
+        // Rainbow timer
+        if (B.rainbow) {
+            B.rainbowTimer++;
+            if (B.rainbowTimer >= B.rainbowDuration) {
+                B.rainbow = false;
+                B.rainbowTimer = 0;
+            }
+        }
+
+        // ─ Collision: spikes ─
+        for (const s of spikes) {
+            if (B.x < s.x + s.w && B.x + B.w > s.x &&
+                B.y < s.y + s.h && B.y + B.h > s.y) {
+                gameOver = true;
+                burst(B.x + B.w/2, B.y + B.h/2, '#FF6B6B', 25);
+            }
+        }
+
+        // ─ Collision: balls ─
+        for (const b of balls) {
+            if (b.collected) continue;
+            const dx = (B.x + B.w/2) - b.x;
+            const dy = (B.y + B.h/2) - b.y;
+            if (Math.sqrt(dx*dx + dy*dy) < B.w/2 + b.r - 4) {
+                b.collected = true;
+                if (b.type === 'normal') {
+                    score++;
+                    burst(b.x, b.y, '#4ECDC4', 8);
+                } else if (b.type === 'magnet') {
+                    score += 5;
+                    burst(b.x, b.y, '#FFD93D', 10);
+                    // Hút tất cả balls gần đó
+                    for (const other of balls) {
+                        if (!other.collected && other !== b) {
+                            const ox = other.x - b.x, oy = other.y - b.y;
+                            if (Math.sqrt(ox*ox + oy*oy) < 160) {
+                                other.collected = true;
+                                score++;
+                                burst(other.x, other.y, '#4ECDC4', 5);
+                            }
+                        }
+                    }
+                } else { // rainbow
+                    score += 10;
+                    B.rainbow = true;
+                    B.rainbowTimer = 0;
+                    burst(b.x, b.y, rainbowColor(), 16);
+                }
+            }
+        }
+
+        // UI
+        document.getElementById('score').textContent = score;
+        document.getElementById('timer').textContent = elapsed + 's';
+
+        const pb = document.getElementById('powerupBar');
+        if (B.rainbow) {
+            pb.classList.add('show');
+            document.getElementById('barFill').style.width =
+                (100 - (B.rainbowTimer / B.rainbowDuration * 100)) + '%';
+        } else {
+            pb.classList.remove('show');
+        }
+    }
+
+    // ─── DRAW ────────────────────────────────────────────
+    function draw() {
+        // Background
+        ctx.fillStyle = darkMode ? '#1a1a1a' : '#ffffff';
+        ctx.fillRect(0, 0, W, H);
+
+        // Subtle grid
+        ctx.strokeStyle = darkMode ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)';
+        ctx.lineWidth = 1;
+        for (let x = 0; x < W; x += 50) {
+            ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke();
+        }
+        for (let y = 0; y < H; y += 50) {
+            ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();
+        }
+
+        // Objects
+        for (const s of spikes)  drawSpike(s);
+        for (const b of balls)   if (!b.collected) drawBall(b);
+        drawParticles();
+        drawBalloon();
+
+        // Dim on game over
+        if (gameOver) {
+            ctx.fillStyle = darkMode
+                ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.55)';
+            ctx.fillRect(0, 0, W, H);
+        }
+    }
+
+    // ─── GAME LOOP ───────────────────────────────────────
+    let showingGameOver = false;
+    function loop() {
+        update();
+        draw();
+        if (gameOver && !showingGameOver) {
+            showingGameOver = true;
+            document.getElementById('goScore').textContent = score;
+            document.getElementById('goTime').textContent = elapsed;
+            document.getElementById('gameover').classList.add('show');
+        }
+        requestAnimationFrame(loop);
+    }
+
+    // ─── MENU ────────────────────────────────────────────
+    document.getElementById('menuBtn').addEventListener('click', e => {
+        e.stopPropagation();
+        document.getElementById('dropdown').classList.toggle('show');
+    });
+    document.addEventListener('click', () => {
+        document.getElementById('dropdown').classList.remove('show');
+    });
+    document.getElementById('darkToggle').addEventListener('click', e => {
+        e.stopPropagation();
+        darkMode = !darkMode;
+        document.body.classList.toggle('dark', darkMode);
+        document.getElementById('darkSwitch').classList.toggle('on', darkMode);
+        localStorage.setItem('dark', darkMode);
+    });
+
+    // Init dark mode
+    if (darkMode) {
+        document.body.classList.add('dark');
+        document.getElementById('darkSwitch').classList.add('on');
+    }
+
+    document.getElementById('restartBtn').addEventListener('click', () => {
+        showingGameOver = false;
+        reset();
+    });
+
+    // ─── START ───────────────────────────────────────────
+    reset();
+    loop();
+    </script>
+</body>
+</html>
